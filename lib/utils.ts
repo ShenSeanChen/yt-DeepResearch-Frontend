@@ -52,7 +52,7 @@ export function truncateText(text: string, maxLength: number): string {
  */
 export function getModelDisplayName(modelId: string): string {
   const modelNames: Record<string, string> = {
-    'openai': 'OpenAI GPT-4',
+    'openai': 'OpenAI GPT-4o',
     'anthropic': 'Anthropic Claude',
     'kimi': 'Kimi K2'
   }

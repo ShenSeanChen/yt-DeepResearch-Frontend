@@ -243,6 +243,28 @@ const ResearchInterface = () => {
     setIsStreaming(false)
   }
 
+  const calculateProgress = () => {
+    // Expected stages: clarification, research_brief, research_execution, final_report
+    const expectedStages = ['clarification', 'research_brief', 'research_execution', 'final_report']
+    const completedStages = new Set()
+    
+    // Count unique stages that have been completed or started
+    streamingEvents.forEach(event => {
+      if (event.stage) {
+        completedStages.add(event.stage)
+      }
+      // Also check node names for stage mapping
+      if (event.node_name === 'clarify_with_user') completedStages.add('clarification')
+      if (event.node_name === 'write_research_brief') completedStages.add('research_brief')  
+      if (event.node_name === 'research_supervisor') completedStages.add('research_execution')
+      if (event.node_name === 'final_report_generation') completedStages.add('final_report')
+    })
+    
+    // Calculate progress based on completed stages
+    const progress = (completedStages.size / expectedStages.length) * 100
+    return Math.max(10, progress) // Minimum 10% to show some progress
+  }
+
   const toggleEventExpansion = (index: number) => {
     const newExpanded = new Set(expandedEvents)
     if (newExpanded.has(index)) {
@@ -329,7 +351,7 @@ const ResearchInterface = () => {
               disabled={isStreaming}
             >
               <option value="anthropic">Anthropic Claude</option>
-              <option value="openai">OpenAI GPT-4</option>
+              <option value="openai">OpenAI GPT-4o</option>
               <option value="kimi">Kimi K2</option>
             </select>
           </div>
@@ -362,19 +384,19 @@ const ResearchInterface = () => {
             )}
           </div>
           
-          {/* Progress Bar */}
-          {isStreaming && (
-            <div className="mt-3">
-              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-1000 ease-out"
-                     style={{width: `${Math.min((streamingEvents.length / 4) * 100, 100)}%`}}></div>
-              </div>
-              <div className="flex justify-between text-xs text-slate-500 mt-1">
-                <span>Progress</span>
-                <span>{Math.min(Math.round((streamingEvents.length / 4) * 100), 100)}%</span>
-              </div>
-            </div>
-          )}
+                      {/* Progress Bar */}
+                      {isStreaming && (
+                        <div className="mt-3">
+                          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                            <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-1000 ease-out"
+                                 style={{width: `${Math.min(calculateProgress(), 100)}%`}}></div>
+                          </div>
+                          <div className="flex justify-between text-xs text-slate-500 mt-1">
+                            <span>Progress</span>
+                            <span>{Math.min(Math.round(calculateProgress()), 100)}%</span>
+                          </div>
+                        </div>
+                      )}
           
           {currentStage && (
             <div className="flex items-center space-x-2 mt-3 text-sm text-slate-600 dark:text-slate-400">
@@ -451,10 +473,12 @@ const ResearchInterface = () => {
                   const isExpandable = isEventExpandable(event)
                   const sources = event.content ? extractSourcesFromContent(event.content) : []
                   const isNewEvent = index === streamingEvents.slice(-20).length - 1
+                  // Create unique key using timestamp and index to prevent duplicates
+                  const uniqueKey = `${event.timestamp}-${actualIndex}-${event.type}`
                   
                   return (
                     <div
-                      key={actualIndex}
+                      key={uniqueKey}
                       className={cn(
                         "text-xs p-4 rounded-lg border-l-4 transition-all duration-300 ease-out",
                         "transform hover:scale-[1.01] hover:shadow-lg",
