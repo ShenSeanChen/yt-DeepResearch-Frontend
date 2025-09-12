@@ -11,11 +11,13 @@ import ResearchInterface from '@/components/ResearchInterface'
 import ModelComparison from '@/components/ModelComparison'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Brain, BarChart3, History } from 'lucide-react'
+import { ResearchProvider } from '@/contexts/ResearchContext'
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('research')
 
   return (
+    <ResearchProvider>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Header */}
       <header className="border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm sticky top-0 z-50">
@@ -104,5 +106,6 @@ export default function HomePage() {
         </div>
       </footer>
     </div>
+    </ResearchProvider>
   )
 }

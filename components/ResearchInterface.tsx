@@ -8,43 +8,34 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, AlertCircle, CheckCircle, Search, FileText, Lightbulb } from 'lucide-react'
+import { Send, Bot, User, Loader2, AlertCircle, CheckCircle, Search, FileText, Lightbulb, ChevronDown, ChevronRight, ExternalLink, Link } from 'lucide-react'
 import { cn, formatTimestamp, getModelDisplayName } from '@/lib/utils'
+import { useResearchState, type StreamingEvent, type ResearchMessage } from '@/contexts/ResearchContext'
 
-// Types for streaming events
-interface StreamingEvent {
-  type: string
-  stage?: string
-  content?: string
-  timestamp: string
-  research_id?: string
-  model?: string
-  error?: string
-  node_name?: string
-  node_count?: number
-  duration?: number
-}
-
-interface ResearchMessage {
-  id: string
-  type: 'user' | 'assistant' | 'system'
-  content: string
-  timestamp: string
-  model?: string
-  stage?: string
-  isStreaming?: boolean
-}
+// Types imported from ResearchContext
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
 
 const ResearchInterface = () => {
-  const [messages, setMessages] = useState<ResearchMessage[]>([])
+  const {
+    messages,
+    setMessages,
+    streamingEvents,
+    setStreamingEvents,
+    currentStage,
+    setCurrentStage,
+    isStreaming,
+    setIsStreaming,
+    selectedModel,
+    setSelectedModel,
+    apiKey,
+    setApiKey
+  } = useResearchState()
+  
   const [input, setInput] = useState('')
-  const [selectedModel, setSelectedModel] = useState('anthropic')
-  const [apiKey, setApiKey] = useState('')
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [currentStage, setCurrentStage] = useState('')
-  const [streamingEvents, setStreamingEvents] = useState<StreamingEvent[]>([])
+  const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set())
+  const [isTyping, setIsTyping] = useState(false)
+  const [currentTypingStage, setCurrentTypingStage] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -130,52 +121,95 @@ const ResearchInterface = () => {
                 ...eventData,
                 timestamp: eventData.timestamp || new Date().toISOString()
               }
-              
-              setStreamingEvents(prev => [...prev, event])
-              
               if (event.stage) {
                 setCurrentStage(event.stage)
+                setCurrentTypingStage(event.stage)
+                setIsTyping(true)
+                // Clear typing indicator after a delay
+                setTimeout(() => setIsTyping(false), 2000)
               }
 
               // Handle completion
               if (event.type === 'research_complete') {
                 setIsStreaming(false)
                 
-                // Look for final report in the streaming events
-                const finalReportEvent = streamingEvents.find(e => 
-                  e.node_name === 'final_report_generation' && e.content?.includes('📄 Final Report:')
-                )
-                
-                let finalReportContent = "Research completed successfully!"
-                if (finalReportEvent && finalReportEvent.content) {
-                  const reportMatch = finalReportEvent.content.match(/📄 Final Report: (.*)$/m)
-                  if (reportMatch) {
-                    finalReportContent = reportMatch[1]
+                // Look for final report in all streaming events (including current one)
+                setStreamingEvents(prevEvents => {
+                  const allEvents = [...prevEvents, event]
+                  
+                  // Find final report content from any final_report_generation node
+                  let finalReportContent = "Research completed successfully!"
+                  
+                  // Look for the final report in all events
+                  const finalReportEvents = allEvents.filter(e => 
+                    e.node_name === 'final_report_generation' && e.content
+                  )
+                  
+                  if (finalReportEvents.length > 0) {
+                    // Get the last final report event
+                    const lastReportEvent = finalReportEvents[finalReportEvents.length - 1]
+                    
+                    // Try multiple patterns to extract the report
+                    const patterns = [
+                      /📄 Final Report: (.*)$/m,
+                      /📄 Generated Report: (.*)$/m,
+                      /📋 Generated Report: (.*)$/m,
+                      /Final Report: (.*)$/m,
+                      /Report \d+: (.*)$/m
+                    ]
+                    
+                    for (const pattern of patterns) {
+                      const match = lastReportEvent.content?.match(pattern)
+                      if (match && match[1] && match[1].trim().length > 50) {
+                        finalReportContent = match[1].trim()
+                        break
+                      }
+                    }
+                    
+                    // If no pattern matched, use the full content if it's substantial
+                    if (finalReportContent === "Research completed successfully!" && 
+                        lastReportEvent.content && lastReportEvent.content.length > 100) {
+                      finalReportContent = lastReportEvent.content
+                    }
                   }
-                }
-                
-                // Add final research results as a new message
-                const finalMessage: ResearchMessage = {
-                  id: (Date.now() + 2).toString(),
-                  type: 'assistant',
-                  content: finalReportContent,
-                  timestamp: new Date().toISOString(),
-                  model: selectedModel
-                }
-                
-                setMessages(prev => [...prev.map(msg => 
-                  msg.id === systemMessage.id 
-                    ? { ...msg, content: `Research completed in ${event.duration?.toFixed(1)}s`, isStreaming: false }
-                    : msg
-                ), finalMessage])
+                  
+                  // Add final research results as a new message
+                  const finalMessage = {
+                    id: (Date.now() + 2).toString(),
+                    type: 'assistant' as const,
+                    content: finalReportContent,
+                    timestamp: new Date().toISOString(),
+                    model: selectedModel
+                  }
+                  
+                  setMessages(prev => [...prev.map(msg => 
+                    msg.id === systemMessage.id 
+                      ? { ...msg, content: `Research completed in ${event.duration?.toFixed(1)}s`, isStreaming: false }
+                      : msg
+                  ), finalMessage])
+                  
+                  return allEvents
+                })
+              } else {
+                // For non-completion events, just add to the list
+                setStreamingEvents(prev => [...prev, event])
               }
 
-              // Handle errors
+              // Handle errors with better UX
               if (event.type === 'error') {
                 setIsStreaming(false)
+                setIsTyping(false)
+                const errorMessage = event.error || event.content || 'An unexpected error occurred'
+                
+                // Add retry button for certain errors
+                const isRetryableError = errorMessage.includes('500') || errorMessage.includes('rate limit') || errorMessage.includes('timeout')
+                const displayMessage = isRetryableError 
+                  ? `${errorMessage} - This might be temporary. You can try again.`
+                  : `Error: ${errorMessage}`
+                
                 setMessages(prev => prev.map(msg => 
                   msg.id === systemMessage.id 
-                    ? { ...msg, content: `Error: ${event.error || event.content}`, isStreaming: false }
+                    ? { ...msg, content: displayMessage, isStreaming: false }
                     : msg
                 ))
               }
@@ -207,6 +241,53 @@ const ResearchInterface = () => {
       abortControllerRef.current.abort()
     }
     setIsStreaming(false)
+  }
+
+  const toggleEventExpansion = (index: number) => {
+    const newExpanded = new Set(expandedEvents)
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index)
+    } else {
+      newExpanded.add(index)
+    }
+    setExpandedEvents(newExpanded)
+  }
+
+  const extractSourcesFromContent = (content: string): string[] => {
+    const sources: string[] = []
+    
+    // Extract URLs from content
+    const urlRegex = /https?:\/\/[^\s<>"{}|\\^`[\]]+/g
+    const urls = content.match(urlRegex) || []
+    sources.push(...urls)
+    
+    // Extract potential source mentions
+    const sourcePatterns = [
+      /SOURCE:\s*([^\n]+)/gi,
+      /Source:\s*([^\n]+)/gi,
+      /from\s+([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi,
+      /according to\s+([^\n,]+)/gi,
+      /cited from\s+([^\n,]+)/gi
+    ]
+    
+    sourcePatterns.forEach(pattern => {
+      const matches = content.match(pattern) || []
+      sources.push(...matches.map(match => match.replace(pattern, '$1').trim()))
+    })
+    
+    return [...new Set(sources)].filter(source => source.length > 3)
+  }
+
+  const isEventExpandable = (event: StreamingEvent): boolean => {
+    return Boolean(event.content && (
+      event.content.length > 200 ||
+      event.content.includes('\n') ||
+      event.type === 'research_finding' ||
+      event.type === 'research_summary' ||
+      event.node_name === 'write_research_brief' ||
+      event.node_name === 'research_supervisor' ||
+      extractSourcesFromContent(event.content).length > 0
+    ))
   }
 
   const getStageIcon = (stage: string) => {
@@ -271,11 +352,44 @@ const ResearchInterface = () => {
       {/* Chat Messages */}
       <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 min-h-[400px] mb-4">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Research Session</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Research Session</h2>
+            {isStreaming && (
+              <div className="flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-600 dark:text-green-400 font-medium">Live</span>
+              </div>
+            )}
+          </div>
+          
+          {/* Progress Bar */}
+          {isStreaming && (
+            <div className="mt-3">
+              <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-1000 ease-out"
+                     style={{width: `${Math.min((streamingEvents.length / 4) * 100, 100)}%`}}></div>
+              </div>
+              <div className="flex justify-between text-xs text-slate-500 mt-1">
+                <span>Progress</span>
+                <span>{Math.min(Math.round((streamingEvents.length / 4) * 100), 100)}%</span>
+              </div>
+            </div>
+          )}
+          
           {currentStage && (
-            <div className="flex items-center space-x-2 mt-2 text-sm text-slate-600 dark:text-slate-400">
+            <div className="flex items-center space-x-2 mt-3 text-sm text-slate-600 dark:text-slate-400">
               {getStageIcon(currentStage)}
               <span>Current Stage: {currentStage.replace('_', ' ').toUpperCase()}</span>
+              {isTyping && currentTypingStage === currentStage && (
+                <div className="flex items-center space-x-1 ml-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                  </div>
+                  <span className="text-blue-500 font-medium">AI thinking...</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -330,37 +444,111 @@ const ResearchInterface = () => {
               <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
                 Research Process (Real-time)
               </h3>
-                  <div className="space-y-2 max-h-80 overflow-y-auto">
-                {streamingEvents.slice(-20).map((event, index) => (
-                  <div
-                    key={index}
-                    className={cn(
-                      "text-xs p-2 rounded border-l-4",
-                      getEventTypeColor(event.type)
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">
-                        {event.type.replace('_', ' ').toUpperCase()}
-                        {event.stage && ` - ${event.stage.replace('_', ' ')}`}
-                        {event.node_name && ` (${event.node_name})`}
-                      </span>
-                      <span className="opacity-70">
-                        {formatTimestamp(event.timestamp)}
-                      </span>
-                    </div>
-                    {event.content && (
-                      <div className="mt-1 opacity-80">
-                        {event.type === 'research_finding' || event.type === 'research_summary' 
-                          ? event.content 
-                          : event.content.length > 150 
-                            ? `${event.content.slice(0, 150)}...` 
-                            : event.content
-                        }
+                  <div className="space-y-3 max-h-80 overflow-y-auto scroll-smooth">
+                {streamingEvents.slice(-20).map((event, index) => {
+                  const actualIndex = streamingEvents.length - 20 + index
+                  const isExpanded = expandedEvents.has(actualIndex)
+                  const isExpandable = isEventExpandable(event)
+                  const sources = event.content ? extractSourcesFromContent(event.content) : []
+                  const isNewEvent = index === streamingEvents.slice(-20).length - 1
+                  
+                  return (
+                    <div
+                      key={actualIndex}
+                      className={cn(
+                        "text-xs p-4 rounded-lg border-l-4 transition-all duration-300 ease-out",
+                        "transform hover:scale-[1.01] hover:shadow-lg",
+                        getEventTypeColor(event.type),
+                        isExpandable && "cursor-pointer",
+                        isNewEvent && "animate-in slide-in-from-right-2 fade-in duration-500"
+                      )}
+                      onClick={isExpandable ? () => toggleEventExpansion(actualIndex) : undefined}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          {isExpandable && (
+                            isExpanded ? 
+                              <ChevronDown className="w-3 h-3 text-gray-500" /> : 
+                              <ChevronRight className="w-3 h-3 text-gray-500" />
+                          )}
+                          <span className="font-medium">
+                            {event.type.replace('_', ' ').toUpperCase()}
+                            {event.stage && ` - ${event.stage.replace('_', ' ')}`}
+                            {event.node_name && ` (${event.node_name})`}
+                          </span>
+                          {sources.length > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <Link className="w-3 h-3 text-blue-500" />
+                              <span className="text-blue-500 font-medium">{sources.length} source{sources.length > 1 ? 's' : ''}</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="opacity-70">
+                          {formatTimestamp(event.timestamp)}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                ))}
+                      
+                      {event.content && (
+                        <div className="mt-2 opacity-90">
+                          {isExpanded || !isExpandable ? (
+                            // Show full content
+                            <div className="space-y-2">
+                              <div className="whitespace-pre-wrap">
+                                {event.content}
+                              </div>
+                              
+                              {/* Show sources if available */}
+                              {sources.length > 0 && (
+                                <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
+                                  <div className="font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    📎 Sources & References:
+                                  </div>
+                                  <div className="space-y-1">
+                                    {sources.map((source, sourceIndex) => (
+                                      <div key={sourceIndex} className="flex items-center space-x-2">
+                                        <ExternalLink className="w-3 h-3 text-blue-500 flex-shrink-0" />
+                                        {source.startsWith('http') ? (
+                                          <a 
+                                            href={source} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-blue-600 dark:text-blue-400 hover:underline text-xs break-all"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            {source}
+                                          </a>
+                                        ) : (
+                                          <span className="text-gray-600 dark:text-gray-400 text-xs">
+                                            {source}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            // Show truncated content with expand hint
+                            <div>
+                              <div>
+                                {event.content.length > 150 
+                                  ? `${event.content.slice(0, 150)}...` 
+                                  : event.content
+                                }
+                              </div>
+                              {isExpandable && (
+                                <div className="mt-1 text-blue-500 font-medium">
+                                  Click to expand {sources.length > 0 && `• ${sources.length} source${sources.length > 1 ? 's' : ''} available`}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}
