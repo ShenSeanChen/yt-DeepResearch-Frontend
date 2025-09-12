@@ -487,8 +487,8 @@ const ResearchInterface = () => {
                   const isExpandable = isEventExpandable(event)
                   const sources = event.content ? extractSourcesFromContent(event.content) : []
                   const isNewEvent = index === streamingEvents.slice(-20).length - 1
-                  // Create unique key using multiple identifiers to prevent duplicates
-                  const uniqueKey = `${event.timestamp}-${actualIndex}-${event.type}-${event.stage || 'no-stage'}-${event.research_id || 'no-id'}-${index}`
+                  // Use actualIndex as unique key - guaranteed unique since it's the position in the full array
+                  const uniqueKey = `streaming-event-${actualIndex}`
                   
                   return (
                     <div
