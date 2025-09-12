@@ -306,6 +306,7 @@ const ResearchInterface = () => {
       event.content.includes('\n') ||
       event.type === 'research_finding' ||
       event.type === 'research_summary' ||
+      event.type === 'research_step' ||
       event.node_name === 'write_research_brief' ||
       event.node_name === 'research_supervisor' ||
       extractSourcesFromContent(event.content).length > 0
@@ -316,7 +317,12 @@ const ResearchInterface = () => {
     switch (stage?.toLowerCase()) {
       case 'clarification': return <User className="w-4 h-4" />
       case 'research_brief': return <FileText className="w-4 h-4" />
-      case 'research': return <Search className="w-4 h-4" />
+      case 'research_execution': return <Search className="w-4 h-4" />
+      case 'research_planning': return <Lightbulb className="w-4 h-4" />
+      case 'research_query': return <Search className="w-4 h-4" />
+      case 'research_finding': return <CheckCircle className="w-4 h-4" />
+      case 'research_analysis': return <Bot className="w-4 h-4" />
+      case 'research_synthesis': return <FileText className="w-4 h-4" />
       case 'final_report': return <CheckCircle className="w-4 h-4" />
       default: return <Lightbulb className="w-4 h-4" />
     }
@@ -328,8 +334,16 @@ const ResearchInterface = () => {
       case 'stage_start': return 'text-green-600 bg-green-50 border-green-200'
       case 'stage_complete': return 'text-purple-600 bg-purple-50 border-purple-200'
       case 'research_complete': return 'text-emerald-600 bg-emerald-50 border-emerald-200'
+      
+      // Detailed research step types
+      case 'research_step': return 'text-amber-600 bg-amber-50 border-amber-200'
       case 'research_finding': return 'text-indigo-600 bg-indigo-50 border-indigo-200'
       case 'research_summary': return 'text-cyan-600 bg-cyan-50 border-cyan-200'
+      
+      // Node-based events
+      case 'node_update': return 'text-slate-600 bg-slate-50 border-slate-200'
+      case 'thinking': return 'text-violet-600 bg-violet-50 border-violet-200'
+      
       case 'error': return 'text-red-600 bg-red-50 border-red-200'
       default: return 'text-gray-600 bg-gray-50 border-gray-200'
     }
@@ -473,8 +487,8 @@ const ResearchInterface = () => {
                   const isExpandable = isEventExpandable(event)
                   const sources = event.content ? extractSourcesFromContent(event.content) : []
                   const isNewEvent = index === streamingEvents.slice(-20).length - 1
-                  // Create unique key using timestamp and index to prevent duplicates
-                  const uniqueKey = `${event.timestamp}-${actualIndex}-${event.type}`
+                  // Create unique key using multiple identifiers to prevent duplicates
+                  const uniqueKey = `${event.timestamp}-${actualIndex}-${event.type}-${event.stage || 'no-stage'}-${event.research_id || 'no-id'}-${index}`
                   
                   return (
                     <div
@@ -495,9 +509,15 @@ const ResearchInterface = () => {
                               <ChevronDown className="w-3 h-3 text-gray-500" /> : 
                               <ChevronRight className="w-3 h-3 text-gray-500" />
                           )}
-                          <span className="font-medium">
-                            {event.type.replace('_', ' ').toUpperCase()}
-                            {event.stage && ` - ${event.stage.replace('_', ' ')}`}
+                          <span className={cn(
+                            "font-medium",
+                            event.type === 'research_step' && "text-amber-700 font-semibold"
+                          )}>
+                            {event.type === 'research_step' ? 
+                              `🔬 ${event.content?.split(':')[0] || 'Research Step'}` :
+                              event.type.replace('_', ' ').toUpperCase()
+                            }
+                            {event.stage && event.type !== 'research_step' && ` - ${event.stage.replace('_', ' ')}`}
                             {event.node_name && ` (${event.node_name})`}
                           </span>
                           {sources.length > 0 && (
