@@ -93,7 +93,7 @@ export default function ResearchInterface() {
     abortControllerRef.current = new AbortController()
 
     try {
-      const response = await fetch('/api/research/stream', {
+      const response = await fetch('http://localhost:8080/research/stream', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
