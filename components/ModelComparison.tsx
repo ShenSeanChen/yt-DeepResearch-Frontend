@@ -7,7 +7,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { BarChart3, Clock, CheckCircle, AlertCircle, TrendingUp, Zap, Play, Users, FileText, Target } from 'lucide-react'
+import { BarChart3, Clock, CheckCircle, AlertCircle, TrendingUp, Zap } from 'lucide-react'
+import { useResearchState } from '@/contexts/ResearchContext'
 import { cn, formatDuration, getModelDisplayName, getModelColor } from '@/lib/utils'
 
 interface ModelMetrics {
@@ -44,13 +45,7 @@ interface MultiModelRun {
   }[]
 }
 
-interface ModelComparisonMetrics {
-  averageTime: number
-  averageSourceCount: number
-  averageWordCount: number
-  successRate: number
-  strengthAreas: string[]
-}
+// Reserved for future advanced comparison metrics
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
 
@@ -58,6 +53,7 @@ const ModelComparison = () => {
   const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Placeholder for future tabs if we expand this page further
   const [activeTab, setActiveTab] = useState<'overview' | 'multi-compare' | 'agent-flow'>('overview')
   
   // Multi-model comparison state
@@ -66,6 +62,7 @@ const ModelComparison = () => {
   const [isRunningComparison, setIsRunningComparison] = useState(false)
   const [comparisonResults, setComparisonResults] = useState<MultiModelRun[]>([])
   const [currentRunProgress, setCurrentRunProgress] = useState<{[key: string]: string}>({})
+  const { apiKey } = useResearchState()
   
   const availableModels = [
     { id: 'anthropic', name: 'Claude 3.5 Sonnet', description: 'Latest Anthropic model with superior reasoning' },
@@ -123,6 +120,72 @@ const ModelComparison = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  // MVP: run the same prompt on multiple models in parallel and measure duration.
+  const runMultiModelComparison = async () => {
+    if (!multiModelQuery.trim() || selectedModels.length === 0 || !apiKey.trim()) return
+    setIsRunningComparison(true)
+    const runId = `mm_${Date.now()}`
+    // Lightweight runner; no shared timer needed here
+
+    // Prepare one SSE request per model.
+    const tasks = selectedModels.map(async (model) => {
+      const controller = new AbortController()
+      const started = Date.now()
+      let totalContent = ''
+      let lastStage = ''
+      try {
+        const res = await fetch(`${BACKEND_URL}/research/stream`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: multiModelQuery, model, api_key: apiKey }),
+          signal: controller.signal,
+        })
+        const reader = res.body?.getReader()
+        const decoder = new TextDecoder()
+        if (!reader) throw new Error('No reader')
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+          for (const line of lines) {
+            if (!line.startsWith('data: ')) continue
+            try {
+              const evt = JSON.parse(line.slice(6))
+              if (evt.stage) lastStage = evt.stage
+              if (evt.content && typeof evt.content === 'string') totalContent += `\n${evt.content}`
+              setCurrentRunProgress(prev => ({ ...prev, [model]: lastStage || 'streaming' }))
+            } catch {}
+          }
+        }
+        const duration = (Date.now() - started) / 1000
+        return { model, duration, content: totalContent }
+      } catch (e) {
+        return { model, duration: (Date.now() - started) / 1000, error: (e as Error).message, content: totalContent }
+      }
+    })
+
+    const results = await Promise.all(tasks)
+    const merged: MultiModelRun = {
+      id: runId,
+      query: multiModelQuery,
+      timestamp: new Date().toISOString(),
+      results: results.map(r => ({
+        model: r.model,
+        duration: r.duration,
+        stageTimings: { clarification: 0, research_brief: 0, research_execution: 0, final_report: 0 },
+        sourceCount: 0,
+        wordCount: r.content.split(/\s+/).filter(Boolean).length,
+        success: !r.error,
+        error: r.error,
+      })),
+    }
+    setComparisonResults(prev => [merged, ...prev])
+    setIsRunningComparison(false)
   }
 
   if (loading) {
@@ -203,6 +266,75 @@ const ModelComparison = () => {
           </div>
         )}
       </div>
+
+      {/* Multi-Model Compare MVP */}
+      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6 mb-8">
+        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Run Quick Compare</h3>
+        <div className="space-y-3">
+          <input
+            type="text"
+            value={multiModelQuery}
+            onChange={(e) => setMultiModelQuery(e.target.value)}
+            placeholder="Enter a research prompt to compare across models"
+            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+            disabled={isRunningComparison}
+          />
+          <div className="flex flex-wrap gap-2">
+            {availableModels.map(m => (
+              <button
+                key={m.id}
+                onClick={() => setSelectedModels(prev => prev.includes(m.id) ? prev.filter(id => id !== m.id) : [...prev, m.id])}
+                className={cn('px-3 py-1.5 rounded-md text-sm border', selectedModels.includes(m.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-transparent text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-600')}
+                disabled={isRunningComparison}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={runMultiModelComparison}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md disabled:bg-slate-400"
+            disabled={isRunningComparison || !multiModelQuery.trim()}
+          >
+            {isRunningComparison ? 'Running...' : 'Compare Now'}
+          </button>
+          {Object.keys(currentRunProgress).length > 0 && (
+            <div className="text-xs text-slate-500">Progress: {selectedModels.map(m => `${m}: ${currentRunProgress[m] || '-'}`).join('  |  ')}</div>
+          )}
+        </div>
+      </div>
+
+      {/* Latest run results */}
+      {comparisonResults.length > 0 && (
+        <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden mb-8">
+          <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
+            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Latest Comparison</h3>
+            <p className="text-xs text-slate-500">Prompt: {comparisonResults[0].query}</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-50 dark:bg-slate-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Model</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Duration</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Words</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                {comparisonResults[0].results.map(r => (
+                  <tr key={`${comparisonResults[0].id}-${r.model}`} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                    <td className="px-6 py-4">{r.model}</td>
+                    <td className="px-6 py-4">{formatDuration(r.duration)}</td>
+                    <td className="px-6 py-4">{r.wordCount}</td>
+                    <td className="px-6 py-4">{r.success ? '✅' : '❌'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Overall Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

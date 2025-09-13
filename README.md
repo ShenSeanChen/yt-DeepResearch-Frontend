@@ -142,6 +142,54 @@ The interface shows detailed research steps:
 
 The Deep Research Agent includes built-in Google Docs export functionality for seamless report sharing and collaboration.
 
+### One-time Setup (OAuth)
+
+Follow these steps to enable one‑click Google Docs export:
+
+1) Create/Select a GCP project
+- Go to `https://console.cloud.google.com` and select or create a project.
+
+2) Enable APIs
+- Search for and enable:
+  - Google Docs API
+  - Google Drive API
+
+3) Configure OAuth consent screen
+- User type: External
+- App name, support email: fill in anything reasonable
+- Scopes: add
+  - `https://www.googleapis.com/auth/documents`
+  - `https://www.googleapis.com/auth/drive.file`
+- Test users: add the Gmail accounts that will use the app (you can add more later)
+
+4) Create OAuth credentials (Web application)
+- Navigation: Credentials → Create Credentials → OAuth client ID → Web application
+- Authorized JavaScript origins:
+  - `http://localhost:3000` (local dev)
+  - your production domain (e.g., `https://your-app.vercel.app`)
+- Redirect URIs: not required for this token‑only popup flow (GSI)
+- Copy the generated Client ID.
+
+5) Add the Client ID to environment variables
+- Local: create or update `.env.local` in `yt-DeepResearch-Frontend` with:
+  ```bash
+  NEXT_PUBLIC_GOOGLE_CLIENT_ID=your_client_id.apps.googleusercontent.com
+  ```
+- Production (e.g., Vercel): add the same variable in the project settings, and include your prod domain in Authorized JavaScript origins.
+
+6) Restart the app
+```bash
+npm run dev
+```
+
+7) Verify
+- Run a research → click Export → Google popup should appear → consent → a new Doc opens with your report + sources.
+
+Troubleshooting
+- Popup blocked: allow popups for `localhost:3000`.
+- Missing consent: ensure the signed‑in Google account is added as a Test User on the OAuth consent screen.
+- 400/unauthorized: confirm your domain is listed under Authorized JavaScript origins and the Client ID matches `.env.local`.
+
 ### Export Options
 
 **1. Copy to Clipboard** (Recommended)
@@ -149,11 +197,9 @@ The Deep Research Agent includes built-in Google Docs export functionality for s
 - Content is copied to your clipboard with proper formatting
 - Open Google Docs and paste directly (Ctrl+V / Cmd+V)
 
-**2. Download & Import**
-- Click the "Export" button to download a TXT file
-- Go to [docs.google.com](https://docs.google.com)
-- Create a new document
-- Go to File > Open > Upload and select the downloaded file
+**2. Create Google Doc**
+- Click the "Export" button to sign in with Google and auto-create a Doc
+- The new document opens in a new tab and contains the full report + sources
 
 ### Export Content Includes
 
