@@ -10,7 +10,7 @@ import { useState } from 'react'
 import ResearchInterface from '@/components/ResearchInterface'
 import ModelComparison from '@/components/ModelComparison'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Brain, BarChart3, History, Settings, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Brain, BarChart3, History, ChevronLeft, ChevronRight } from 'lucide-react'
 import { ResearchProvider, useResearchState } from '@/contexts/ResearchContext'
 
 // Sidebar Configuration Component
@@ -172,7 +172,7 @@ export default function HomePage() {
         </Tabs>
 
         {/* Footer */}
-        <footer className="border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
+        {/* <footer className="border-t border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm">
           <div className="px-6 py-4">
             <div className="text-center text-xs text-slate-600 dark:text-slate-400">
               <p>
@@ -183,7 +183,7 @@ export default function HomePage() {
               </p>
             </div>
           </div>
-        </footer>
+        </footer> */}
       </div>
     </div>
     </ResearchProvider>
