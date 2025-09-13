@@ -89,6 +89,16 @@ export default function ResearchInterface() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Auto-fix: Force display final report if research is complete but fallback message is showing
+  useEffect(() => {
+    if (currentStage === 'completed' && 
+        finalReportContent && 
+        streamingContent.includes('check the Thinking Steps tab')) {
+      console.log('Auto-fix triggered: Forcing final report display')
+      setTimeout(() => setStreamingContent(finalReportContent), 500)
+    }
+  }, [currentStage, finalReportContent, streamingContent])
+
   // Extract sources from content
   const extractSourcesFromContent = (content: string): string[] => {
     const urlRegex = /https?:\/\/[^\s\])+,;]+/g
@@ -255,20 +265,18 @@ export default function ResearchInterface() {
                   setResearchBrief(eventData.content)
                   // Show research brief in main chat like Perplexity
                   setStreamingContent(`## 📋 Research Strategy\n\n${eventData.content}\n\n---\n\n## 🔍 Research Progress\n\n*Starting comprehensive research...*`)
-                } else if (eventData.stage === 'final_report_generation' && eventData.content && eventData.content.length > 100) {
+                } else if ((eventData.stage === 'final_report_generation' || eventData.stage === 'Final_report' || eventData.stage?.toLowerCase().includes('final')) && eventData.content && eventData.content.length > 100) {
                   // CRITICAL: Store the final report content immediately
-                  console.log('Storing final report content:', eventData.content.substring(0, 100) + '...')
+                  console.log('Storing final report content from stage:', eventData.stage, eventData.content.substring(0, 100) + '...')
                   setFinalReportContent(eventData.content)
                   
                   // Extract sources immediately
                   const sources = extractSourcesFromContent(eventData.content)
                   setResearchSources(sources)
                   
-                  // Show "Generating final report..." in main chat
-                  setStreamingContent(() => {
-                    const baseContent = researchBrief ? `## 📋 Research Strategy\n\n${researchBrief}\n\n---\n\n` : ''
-                    return `${baseContent}## 🔍 Research Progress\n\n✅ Research completed - generating comprehensive report...\n\n*Preparing final analysis...*`
-                  })
+                  // IMMEDIATELY show the final report in main chat - no waiting!
+                  console.log('IMMEDIATELY displaying final report in main chat')
+                  setStreamingContent(eventData.content)
                 } else if (eventData.stage === 'research_execution' && eventData.content && eventData.content.length > 100) {
                   // Show research progress in main chat
                   setStreamingContent(() => {
@@ -342,20 +350,29 @@ export default function ResearchInterface() {
                   let reportContent = finalReportContent
                   
                   if (!reportContent) {
-                    // Look for final_report_generation stage
-                    const finalReportEvent = allEvents.find(e => e.stage === 'final_report_generation' && e.content)
+                    // Look for final report stages (multiple variations)
+                    const finalReportEvent = allEvents.find(e => e.content && (
+                      e.stage === 'final_report_generation' ||
+                      e.stage === 'Final_report' ||
+                      e.stage?.toLowerCase().includes('final') ||
+                      e.stage?.toLowerCase().includes('report')
+                    ))
                     if (finalReportEvent) {
                       reportContent = finalReportEvent.content
-                      console.log('Found via final_report_generation stage:', reportContent.substring(0, 100))
+                      console.log('Found via final report stage:', finalReportEvent.stage, reportContent.substring(0, 100))
                     }
                   }
                   
                   if (!reportContent) {
-                    // Look for any event with "# Top" or similar
+                    // Look for any event with report-like patterns
                     const titleEvent = allEvents.find(e => e.content && (
                       e.content.includes('# Top') || 
-                      e.content.includes('## AI-Powered') ||
-                      e.content.includes('**Tweet:**')
+                      e.content.includes('## AI') ||
+                      e.content.includes('**Tweet:**') ||
+                      e.content.includes('## Introduction') ||
+                      e.content.includes('## Frame AI') ||
+                      e.content.includes('### Tweet Summary') ||
+                      (e.content.includes('startup') && e.content.includes('#'))
                     ))
                     if (titleEvent) {
                       reportContent = titleEvent.content
@@ -597,8 +614,9 @@ export default function ResearchInterface() {
 
         {/* Research Brief (if available) - Don't show separately since it's in streaming content */}
 
+        
         {/* Debug button - only show when research is complete and we have final report content */}
-        {currentStage === 'completed' && finalReportContent && !streamingContent.includes('# Top') && (
+        {currentStage === 'completed' && finalReportContent && streamingContent.includes('check the Thinking Steps tab') && (
           <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
             <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-2">
               🐛 Final report detected but not displayed. 
