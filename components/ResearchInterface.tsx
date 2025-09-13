@@ -26,7 +26,7 @@ interface StreamingEvent {
 }
 
 // Tab types for research process display
-type ResearchTab = 'steps' | 'sources' | 'thinking'
+type ResearchTab = 'steps'  | 'thinking' | 'sources'
 
 export default function ResearchInterface() {
   const { selectedModel, apiKey, isStreaming, setIsStreaming } = useResearchState()
@@ -46,6 +46,36 @@ export default function ResearchInterface() {
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+
+  // Persist/load session data so chat history survives tab switches
+  useEffect(() => {
+    try {
+      const cached = sessionStorage.getItem('dra_session_v1')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed.messages) setMessages(parsed.messages)
+        if (parsed.streamingEvents) setStreamingEvents(parsed.streamingEvents)
+        if (parsed.apiCallLogs) setApiCallLogs(parsed.apiCallLogs)
+        if (parsed.finalReportContent) setFinalReportContent(parsed.finalReportContent)
+        if (parsed.researchSources) setResearchSources(parsed.researchSources)
+        if (parsed.activeTab) setActiveTab(parsed.activeTab)
+      }
+    } catch {}
+  }, [])
+
+  useEffect(() => {
+    try {
+      const payload = {
+        messages,
+        streamingEvents,
+        apiCallLogs,
+        finalReportContent,
+        researchSources,
+        activeTab,
+      }
+      sessionStorage.setItem('dra_session_v1', JSON.stringify(payload))
+    } catch {}
+  }, [messages, streamingEvents, apiCallLogs, finalReportContent, researchSources, activeTab])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -275,10 +305,12 @@ export default function ResearchInterface() {
 
   // Render research steps (Perplexity-style)
   const renderResearchSteps = () => {
+    // Include api_call events so users see pending/processing steps too
     const steps = streamingEvents.filter(event => 
       event.type === 'stage_start' || 
       event.type === 'stage_update' || 
-      event.type === 'research_step'
+      event.type === 'research_step' ||
+      event.type === 'api_call'
     )
 
     return (
@@ -290,10 +322,17 @@ export default function ResearchInterface() {
             </div>
             <div className="flex-1">
               <div className="text-sm font-medium text-slate-900 dark:text-white">
-                {step.stage?.replace('_', ' ').toUpperCase() || 'Research Step'}
+                {step.type === 'api_call'
+                  ? 'API CALL'
+                  : step.stage?.replace('_', ' ').toUpperCase() || 'Research Step'}
               </div>
               <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                {step.content}
+                {step.type === 'api_call' ? (
+                  // One-line summary for pending API calls
+                  <span className="font-mono">{step.content}</span>
+                ) : (
+                  step.content
+                )}
               </div>
               <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                 {new Date(step.timestamp).toLocaleTimeString()}
@@ -499,17 +538,7 @@ export default function ResearchInterface() {
               >
                 Steps
               </button>
-              <button
-                onClick={() => setActiveTab('sources')}
-                className={cn(
-                  "flex-1 px-4 py-2 text-sm font-medium transition-colors",
-                  activeTab === 'sources'
-                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                )}
-              >
-                Sources
-              </button>
+
               <button
                 onClick={() => setActiveTab('thinking')}
                 className={cn(
@@ -521,6 +550,17 @@ export default function ResearchInterface() {
               >
                 <Brain className="w-4 h-4 inline mr-1" />
                 Thinking
+              </button>
+              <button
+                onClick={() => setActiveTab('sources')}
+                className={cn(
+                  "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+                  activeTab === 'sources'
+                    ? "text-blue-600 dark:text-blue-400 border-b-2 border-blue-600 dark:border-blue-400"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                )}
+              >
+                Sources
               </button>
             </div>
 

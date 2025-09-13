@@ -124,13 +124,9 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Configuration Section - Only show when Research tab is active */}
+        {/* Configuration Inputs (cleaner - no heading) */}
         {!sidebarCollapsed && activeTab === 'research' && (
           <div className="flex-1 p-4">
-            <div className="mb-4 flex items-center space-x-2">
-              <Settings className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">Configuration</h3>
-            </div>
             <SidebarConfig />
           </div>
         )}
