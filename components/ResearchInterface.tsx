@@ -31,6 +31,9 @@ type ResearchTab = 'thinking' | 'sources'
 export default function ResearchInterface() {
   const { selectedModel, apiKey, isStreaming, setIsStreaming } = useResearchState()
   
+  // Backend URL configuration
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+  
   // State management
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([]) // Keep for chat history cache
@@ -199,7 +202,7 @@ export default function ResearchInterface() {
     abortControllerRef.current = new AbortController()
 
     try {
-      const response = await fetch('http://localhost:8080/research/stream', {
+      const response = await fetch(`${BACKEND_URL}/research/stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
