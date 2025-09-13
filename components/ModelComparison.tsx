@@ -7,7 +7,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { BarChart3, Clock, CheckCircle, AlertCircle, TrendingUp, Zap } from 'lucide-react'
+import { BarChart3, Clock, CheckCircle, AlertCircle, TrendingUp, Zap, Play, Users, FileText, Target } from 'lucide-react'
 import { cn, formatDuration, getModelDisplayName, getModelColor } from '@/lib/utils'
 
 interface ModelMetrics {
@@ -21,7 +21,35 @@ interface ModelMetrics {
 interface ComparisonData {
   models: ModelMetrics[]
   totalResearches: number
-        averageResponseTime: number | undefined
+  averageResponseTime: number | undefined
+}
+
+interface MultiModelRun {
+  id: string
+  query: string
+  timestamp: string
+  results: {
+    model: string
+    duration: number
+    stageTimings: {
+      clarification: number
+      research_brief: number
+      research_execution: number
+      final_report: number
+    }
+    sourceCount: number
+    wordCount: number
+    success: boolean
+    error?: string
+  }[]
+}
+
+interface ModelComparisonMetrics {
+  averageTime: number
+  averageSourceCount: number
+  averageWordCount: number
+  successRate: number
+  strengthAreas: string[]
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
@@ -30,6 +58,20 @@ const ModelComparison = () => {
   const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'multi-compare' | 'agent-flow'>('overview')
+  
+  // Multi-model comparison state
+  const [multiModelQuery, setMultiModelQuery] = useState('')
+  const [selectedModels, setSelectedModels] = useState<string[]>(['anthropic', 'openai', 'kimi'])
+  const [isRunningComparison, setIsRunningComparison] = useState(false)
+  const [comparisonResults, setComparisonResults] = useState<MultiModelRun[]>([])
+  const [currentRunProgress, setCurrentRunProgress] = useState<{[key: string]: string}>({})
+  
+  const availableModels = [
+    { id: 'anthropic', name: 'Claude 3.5 Sonnet', description: 'Latest Anthropic model with superior reasoning' },
+    { id: 'openai', name: 'GPT-4o', description: 'OpenAI\'s most capable model with multimodal abilities' },
+    { id: 'kimi', name: 'Kimi K2', description: '256K context window, excellent for long research' }
+  ]
 
   useEffect(() => {
     fetchComparisonData()

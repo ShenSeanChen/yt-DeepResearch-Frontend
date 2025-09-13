@@ -36,9 +36,9 @@ function SidebarConfig() {
           className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
           disabled={isStreaming}
         >
-          <option value="anthropic">Anthropic Claude</option>
-          <option value="openai">OpenAI GPT-4o</option>
-          <option value="kimi">Kimi K2</option>
+          <option value="anthropic">Claude 3.5 Sonnet (Latest)</option>
+          <option value="openai">GPT-4o (Latest)</option>
+          <option value="kimi">Kimi K2 (256K Context)</option>
         </select>
       </div>
 
@@ -97,24 +97,24 @@ export default function HomePage() {
         {!sidebarCollapsed && (
           <div className="p-4">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-1 gap-1 bg-slate-100 dark:bg-slate-800 p-1">
+              <TabsList className="grid w-full grid-cols-1 gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
                 <TabsTrigger 
                   value="research" 
-                  className="flex items-center justify-start space-x-2 w-full data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                  className="flex items-center justify-start space-x-2 w-full data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm rounded-md py-2.5 px-3 text-sm font-medium transition-all"
                 >
                   <Brain className="w-4 h-4" />
                   <span>Research</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="comparison" 
-                  className="flex items-center justify-start space-x-2 w-full data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                  className="flex items-center justify-start space-x-2 w-full data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm rounded-md py-2.5 px-3 text-sm font-medium transition-all"
                 >
                   <BarChart3 className="w-4 h-4" />
                   <span>Compare</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="history" 
-                  className="flex items-center justify-start space-x-2 w-full data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
+                  className="flex items-center justify-start space-x-2 w-full data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700 data-[state=active]:shadow-sm rounded-md py-2.5 px-3 text-sm font-medium transition-all"
                 >
                   <History className="w-4 h-4" />
                   <span>History</span>
@@ -157,15 +157,28 @@ export default function HomePage() {
 
           <TabsContent value="history" className="flex-1 m-0 p-8">
             <div className="text-center py-12">
-              <History className="w-16 h-16 text-slate-400 mx-auto mb-4" />
+              <History className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
                 Research History
               </h3>
-              <p className="text-slate-600 dark:text-slate-400">
-                View your past research sessions and performance metrics
+              <p className="text-slate-600 dark:text-slate-400 max-w-md mx-auto mb-6">
+                Track your research sessions and compare model performance over time.
               </p>
-              <div className="mt-6 text-sm text-slate-500">
-                Coming soon...
+              
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 max-w-lg mx-auto">
+                <div className="text-blue-600 dark:text-blue-400 mb-2">
+                  <svg className="w-6 h-6 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Database Integration Available</h4>
+                <p className="text-sm text-blue-800 dark:text-blue-200 mb-4">
+                  Enable persistent history and model comparison tracking by integrating with Supabase. 
+                  This allows you to save research sessions, compare model performance metrics, and track improvements over time.
+                </p>
+                <div className="text-xs text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-800/50 rounded px-3 py-2">
+                  <strong>Setup Guide:</strong> Check the README.md for Supabase integration instructions
+                </div>
               </div>
             </div>
           </TabsContent>
