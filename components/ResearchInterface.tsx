@@ -8,7 +8,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Send, Bot, User, Loader2, AlertCircle, CheckCircle, Search, FileText, Lightbulb, ChevronDown, ChevronRight, ExternalLink, Link } from 'lucide-react'
+import { Send, Bot, User, Loader2, AlertCircle, CheckCircle, Search, FileText, Lightbulb, ChevronDown, ChevronRight, ExternalLink, Link, Download } from 'lucide-react'
 import { cn, formatTimestamp, getModelDisplayName } from '@/lib/utils'
 import { useResearchState, type StreamingEvent, type ResearchMessage } from '@/contexts/ResearchContext'
 
@@ -36,6 +36,7 @@ const ResearchInterface = () => {
   const [expandedEvents, setExpandedEvents] = useState<Set<number>>(new Set())
   const [isTyping, setIsTyping] = useState(false)
   const [currentTypingStage, setCurrentTypingStage] = useState('')
+  const [apiCallLogs, setApiCallLogs] = useState<string[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
 
@@ -56,6 +57,7 @@ const ResearchInterface = () => {
     setIsStreaming(true)
     setStreamingEvents([])
     setCurrentStage('')
+    setApiCallLogs([])
 
     // Add user message
     const userMessage: ResearchMessage = {
@@ -121,6 +123,30 @@ const ResearchInterface = () => {
                 ...eventData,
                 timestamp: eventData.timestamp || new Date().toISOString()
               }
+              
+              // Add API call logging for better transparency
+              if (event.content) {
+                const timestamp = new Date().toLocaleTimeString()
+                let logEntry = ""
+                
+                // Create simple, readable log entries
+                if (event.type === 'api_call') {
+                  logEntry = `[${timestamp}] 🔗 ${event.content}`
+                } else if (event.type === 'stage_start' || event.type === 'stage_update') {
+                  logEntry = `[${timestamp}] ${event.content}`
+                } else if (event.type === 'research_step') {
+                  logEntry = `[${timestamp}] 🔍 ${event.content}`
+                } else if (event.type === 'research_finding') {
+                  logEntry = `[${timestamp}] 📊 ${event.content}`
+                } else if (event.content && event.content.length > 20) {
+                  logEntry = `[${timestamp}] ${event.content}`
+                }
+                
+                if (logEntry) {
+                  setApiCallLogs(prev => [...prev.slice(-50), logEntry]) // Keep last 50 logs
+                }
+              }
+              
               if (event.stage) {
                 setCurrentStage(event.stage)
                 setCurrentTypingStage(event.stage)
@@ -170,6 +196,15 @@ const ResearchInterface = () => {
                     if (finalReportContent === "Research completed successfully!" && 
                         lastReportEvent.content && lastReportEvent.content.length > 100) {
                       finalReportContent = lastReportEvent.content
+                    }
+                    
+                    // Ensure sources are always included in final report
+                    const sources = extractSourcesFromContent(finalReportContent)
+                    if (sources.length > 0 && !finalReportContent.includes('Sources and References')) {
+                      finalReportContent += '\n\n## Sources and References\n'
+                      sources.forEach((source, index) => {
+                        finalReportContent += `${index + 1}. ${source}\n`
+                      })
                     }
                   }
                   
@@ -241,6 +276,97 @@ const ResearchInterface = () => {
       abortControllerRef.current.abort()
     }
     setIsStreaming(false)
+  }
+
+  const exportToMarkdown = () => {
+    // Find the final research report
+    const finalMessage = messages.find(msg => msg.type === 'assistant' && msg.content.length > 200)
+    if (!finalMessage) {
+      alert('No research results to export yet. Please complete a research session first.')
+      return
+    }
+
+    // Create markdown content
+    const timestamp = new Date().toLocaleDateString()
+    const model = getModelDisplayName(finalMessage.model || selectedModel)
+    
+    let markdownContent = `# Research Report\n\n`
+    markdownContent += `**Generated on:** ${timestamp}\n`
+    markdownContent += `**AI Model:** ${model}\n\n`
+    markdownContent += `---\n\n`
+    markdownContent += finalMessage.content
+    
+    // Add research process if available
+    if (apiCallLogs.length > 0) {
+      markdownContent += `\n\n## Research Process\n\n`
+      markdownContent += '```\n'
+      markdownContent += apiCallLogs.join('\n')
+      markdownContent += '\n```'
+    }
+
+    // Create and download file
+    const blob = new Blob([markdownContent], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `research-report-${Date.now()}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+
+  const exportToPDF = async () => {
+    const finalMessage = messages.find(msg => msg.type === 'assistant' && msg.content.length > 200)
+    if (!finalMessage) {
+      alert('No research results to export yet. Please complete a research session first.')
+      return
+    }
+
+    // Create HTML content for PDF
+    const timestamp = new Date().toLocaleDateString()
+    const model = getModelDisplayName(finalMessage.model || selectedModel)
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Research Report</title>
+        <style>
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 800px; margin: 0 auto; padding: 20px; }
+          h1 { color: #2563eb; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; }
+          h2 { color: #374151; margin-top: 30px; }
+          .metadata { background: #f9fafb; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+          .content { white-space: pre-wrap; }
+          .process { background: #f3f4f6; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <h1>Research Report</h1>
+        <div class="metadata">
+          <strong>Generated on:</strong> ${timestamp}<br>
+          <strong>AI Model:</strong> ${model}
+        </div>
+        <div class="content">${finalMessage.content.replace(/\n/g, '<br>')}</div>
+        ${apiCallLogs.length > 0 ? `
+          <h2>Research Process</h2>
+          <div class="process">${apiCallLogs.join('<br>')}</div>
+        ` : ''}
+      </body>
+      </html>
+    `
+
+    // Create blob and download
+    const blob = new Blob([htmlContent], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `research-report-${Date.now()}.html`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
   }
 
   const calculateProgress = () => {
@@ -350,52 +476,41 @@ const ResearchInterface = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      {/* Model Selection and API Key */}
-      <div className="mb-6 p-4 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              AI Model
-            </label>
-            <select
-              value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isStreaming}
-            >
-              <option value="anthropic">Anthropic Claude</option>
-              <option value="openai">OpenAI GPT-4o</option>
-              <option value="kimi">Kimi K2</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-              API Key
-            </label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your API key..."
-              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              disabled={isStreaming}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Chat Messages */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 min-h-[400px] mb-4">
+    <div className="h-full flex flex-col bg-white dark:bg-slate-800">
+      {/* Chat Messages - Full Height */}
+      <div className="flex-1 flex flex-col min-h-0 border-b border-slate-200 dark:border-slate-700">
         <div className="p-4 border-b border-slate-200 dark:border-slate-700">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Research Session</h2>
-            {isStreaming && (
-              <div className="flex items-center space-x-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-green-600 dark:text-green-400 font-medium">Live</span>
-              </div>
-            )}
+            <div className="flex items-center space-x-2">
+              {/* Export Buttons */}
+              {messages.some(msg => msg.type === 'assistant' && msg.content.length > 200) && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={exportToMarkdown}
+                    className="px-3 py-1 text-xs bg-blue-100 hover:bg-blue-200 dark:bg-blue-900 dark:hover:bg-blue-800 text-blue-700 dark:text-blue-300 rounded-md flex items-center space-x-1 transition-colors"
+                    title="Export as Markdown"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>MD</span>
+                  </button>
+                  <button
+                    onClick={exportToPDF}
+                    className="px-3 py-1 text-xs bg-green-100 hover:bg-green-200 dark:bg-green-900 dark:hover:bg-green-800 text-green-700 dark:text-green-300 rounded-md flex items-center space-x-1 transition-colors"
+                    title="Export as HTML"
+                  >
+                    <Download className="w-3 h-3" />
+                    <span>HTML</span>
+                  </button>
+                </div>
+              )}
+              {isStreaming && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-green-600 dark:text-green-400 font-medium">Live</span>
+                </div>
+              )}
+            </div>
           </div>
           
                       {/* Progress Bar */}
@@ -430,10 +545,10 @@ const ResearchInterface = () => {
           )}
         </div>
 
-        <div className="p-4 space-y-4 max-h-96 overflow-y-auto">
-          {messages.map((message) => (
+        <div className="flex-1 p-4 space-y-4 overflow-y-auto min-h-0">
+          {messages.map((message, index) => (
             <div
-              key={message.id}
+              key={`message-${message.id}-${index}-${message.timestamp}`}
               className={cn(
                 "flex items-start space-x-3",
                 message.type === 'user' ? 'justify-end' : 'justify-start'
@@ -474,21 +589,55 @@ const ResearchInterface = () => {
             </div>
           ))}
 
-          {/* Streaming Events */}
+          {/* AI Thinking Mode - Simple Text Logs */}
+          {(apiCallLogs.length > 0 || isStreaming) && (
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
+              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3 flex items-center space-x-2">
+                <Bot className="w-4 h-4" />
+                <span>AI Thinking Process</span>
+                {isStreaming && (
+                  <div className="flex space-x-1 ml-2">
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                  </div>
+                )}
+              </h3>
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 max-h-40 overflow-y-auto">
+                <div className="space-y-1 font-mono text-xs text-slate-600 dark:text-slate-400">
+                  {apiCallLogs.length === 0 && isStreaming ? (
+                    <div className="text-blue-500 animate-pulse">Initializing research...</div>
+                  ) : (
+                    apiCallLogs.slice(-20).map((log, index) => (
+                      <div key={`log-${index}-${log.slice(0, 20)}`} className="whitespace-pre-wrap">
+                        {log}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Detailed Streaming Events (Collapsible) */}
           {streamingEvents.length > 0 && (
             <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-              <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
-                Research Process (Real-time)
-              </h3>
-                  <div className="space-y-3 max-h-80 overflow-y-auto scroll-smooth">
+              <details className="group">
+                <summary className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400">
+                  <span className="inline-flex items-center space-x-2">
+                    <ChevronRight className="w-4 h-4 group-open:rotate-90 transition-transform" />
+                    <span>Detailed Research Process ({streamingEvents.length} events)</span>
+                  </span>
+                </summary>
+                  <div className="space-y-3 max-h-60 overflow-y-auto scroll-smooth">
                 {streamingEvents.slice(-20).map((event, index) => {
                   const actualIndex = streamingEvents.length - 20 + index
                   const isExpanded = expandedEvents.has(actualIndex)
                   const isExpandable = isEventExpandable(event)
                   const sources = event.content ? extractSourcesFromContent(event.content) : []
                   const isNewEvent = index === streamingEvents.slice(-20).length - 1
-                  // Use actualIndex as unique key - guaranteed unique since it's the position in the full array
-                  const uniqueKey = `streaming-event-${actualIndex}`
+                  // Create unique key using timestamp and index to avoid duplicates
+                  const uniqueKey = `streaming-event-${event.timestamp}-${actualIndex}-${index}`
                   
                   return (
                     <div
@@ -594,6 +743,7 @@ const ResearchInterface = () => {
                   )
                 })}
               </div>
+              </details>
             </div>
           )}
           
@@ -601,8 +751,9 @@ const ResearchInterface = () => {
         </div>
       </div>
 
-      {/* Input Form */}
-      <form onSubmit={handleSubmit} className="flex space-x-2">
+      {/* Input Form - Fixed at bottom */}
+      <div className="flex-shrink-0 p-4 bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
+        <form onSubmit={handleSubmit} className="flex space-x-2">
         <input
           type="text"
           value={input}
@@ -631,7 +782,8 @@ const ResearchInterface = () => {
             <span>Research</span>
           </button>
         )}
-      </form>
+        </form>
+      </div>
     </div>
   )
 }
