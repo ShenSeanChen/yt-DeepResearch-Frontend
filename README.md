@@ -5,11 +5,13 @@ A modern, responsive Next.js frontend for the Deep Research Agent. Features real
 ## ✨ Features
 
 - **Real-time Research Streaming**: Live updates showing AI thinking process and research steps
-- **Multi-Model Support**: Switch between OpenAI GPT-4o, Anthropic Claude, and Kimi K2
+- **Multi-Model Support**: Switch between Claude 3.5 Sonnet, GPT-4o, and Kimi K2 (256K context)
 - **Progressive Research Display**: Detailed step-by-step research progress with visual indicators
+- **Google Docs Export**: One-click export to Google Docs with proper formatting and sources
 - **Responsive Design**: Mobile-friendly and adaptive to all screen sizes
 - **Persistent State**: Research results preserved when switching tabs
 - **Source Linking**: Clickable sources from research findings
+- **Model Comparison**: Compare performance metrics across different AI models
 - **Smooth Animations**: Loading states, progress bars, and transition effects
 
 ## 🚀 Quick Start
@@ -136,6 +138,47 @@ The interface shows detailed research steps:
 - **Hover Effects**: Interactive elements with visual feedback
 - **Responsive Design**: Adapts to mobile, tablet, and desktop screens
 
+## 📄 Google Docs Export
+
+The Deep Research Agent includes built-in Google Docs export functionality for seamless report sharing and collaboration.
+
+### Export Options
+
+**1. Copy to Clipboard** (Recommended)
+- Click the "Copy for Docs" button when research is complete
+- Content is copied to your clipboard with proper formatting
+- Open Google Docs and paste directly (Ctrl+V / Cmd+V)
+
+**2. Download & Import**
+- Click the "Export" button to download a TXT file
+- Go to [docs.google.com](https://docs.google.com)
+- Create a new document
+- Go to File > Open > Upload and select the downloaded file
+
+### Export Content Includes
+
+- **Research Query**: Original question/prompt
+- **Metadata**: Generation timestamp and AI model used
+- **Full Report**: Complete research findings with markdown formatting
+- **Sources**: All referenced URLs and citations
+- **Branding**: Deep Research Agent attribution
+
+### Formatting Features
+
+The exported content maintains:
+- ✅ **Headers and Structure**: Proper heading hierarchy
+- ✅ **Bold and Italic Text**: Emphasis formatting preserved
+- ✅ **Numbered Lists**: Sequential information maintained
+- ✅ **Source Links**: Clickable URLs for easy reference
+- ✅ **Professional Layout**: Clean, readable document structure
+
+### Usage Tips
+
+1. **Best Practice**: Use "Copy for Docs" for fastest workflow
+2. **Team Sharing**: Export to Google Docs for real-time collaboration
+3. **Archive**: Save important research to Google Drive automatically
+4. **Formatting**: Google Docs will auto-detect and enhance markdown formatting
+
 ## 🔗 Connecting to Backend
 
 ### Backend Requirements
@@ -261,12 +304,80 @@ npm run export
 - **Progress Tracking**: Monitor research progress with the progress bar
 - **Error Handling**: Automatic retry suggestions for failed requests
 
+## 🗄️ Database Integration (Optional)
+
+The Deep Research Agent supports optional database integration for persistent research history and advanced model comparison tracking.
+
+### Supabase Integration
+
+**Why Add Database?**
+- 📊 **Research History**: Save and review past research sessions
+- 📈 **Model Performance Tracking**: Compare model speed, accuracy, and quality over time
+- 🔄 **Session Persistence**: Resume research sessions across devices
+- 📊 **Analytics Dashboard**: Track usage patterns and research topics
+
+**Setup Instructions:**
+
+1. **Create Supabase Project**
+   ```bash
+   # Visit https://supabase.com and create a new project
+   # Note your project URL and anon key
+   ```
+
+2. **Database Schema**
+   ```sql
+   -- Research sessions table
+   CREATE TABLE research_sessions (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     query TEXT NOT NULL,
+     model VARCHAR(50) NOT NULL,
+     created_at TIMESTAMP DEFAULT NOW(),
+     completed_at TIMESTAMP,
+     duration_seconds INTEGER,
+     final_report TEXT,
+     sources JSONB,
+     stage_timings JSONB,
+     success BOOLEAN DEFAULT FALSE
+   );
+
+   -- Model performance metrics
+   CREATE TABLE model_metrics (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     model VARCHAR(50) NOT NULL,
+     avg_duration FLOAT,
+     success_rate FLOAT,
+     total_runs INTEGER,
+     last_updated TIMESTAMP DEFAULT NOW()
+   );
+   ```
+
+3. **Environment Variables**
+   ```bash
+   # Add to .env.local
+   NEXT_PUBLIC_SUPABASE_URL=your-project-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+   ```
+
+4. **Install Dependencies**
+   ```bash
+   npm install @supabase/supabase-js
+   ```
+
+**Benefits of Database Integration:**
+- ✅ **Persistent History**: Never lose research results
+- ✅ **Performance Analytics**: Track which models work best for different query types
+- ✅ **Team Collaboration**: Share research sessions with team members
+- ✅ **Usage Insights**: Understand research patterns and optimize workflows
+
+**Note**: Database integration is completely optional. The app works perfectly without it, but adding it unlocks powerful analytics and persistence features.
+
 ## 🔒 Security
 
 - **API Keys**: Never stored client-side, sent directly to backend
 - **HTTPS**: Enforced in production
 - **Input Validation**: Client-side validation for all inputs
 - **CORS**: Configured for secure cross-origin requests
+- **Database Security**: Supabase RLS (Row Level Security) recommended for multi-user setups
 
 ## 🐛 Troubleshooting
 
