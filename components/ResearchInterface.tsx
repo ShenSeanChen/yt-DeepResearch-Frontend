@@ -2,7 +2,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
-import { Send, AlertCircle, Download, ExternalLink, Brain, Menu, X, FileText, Share, Copy } from 'lucide-react'
+import { Send, AlertCircle, Download, ExternalLink, Brain, Menu, X, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useResearchState } from '@/contexts/ResearchContext'
 import { createGoogleDoc } from '@/lib/googleDocs'

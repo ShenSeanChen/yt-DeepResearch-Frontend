@@ -158,17 +158,17 @@ export default function HomePage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <TabsContent value="research" className="flex-1 m-0">
+      <div className="flex-1 flex flex-col min-h-0">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+          <TabsContent value="research" className="flex-1 m-0 overflow-hidden">
             <ResearchInterface />
           </TabsContent>
 
-          <TabsContent value="comparison" className="flex-1 m-0 p-8">
+          <TabsContent value="comparison" className="flex-1 m-0 overflow-y-auto min-h-0">
             <ModelComparison />
           </TabsContent>
 
-          <TabsContent value="history" className="flex-1 m-0 p-8">
+          <TabsContent value="history" className="flex-1 m-0 p-8 overflow-y-auto">
             <div className="text-center py-12">
               <History className="w-12 h-12 text-slate-400 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">

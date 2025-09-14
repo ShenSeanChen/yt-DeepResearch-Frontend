@@ -111,15 +111,66 @@ NEXT_PUBLIC_BACKEND_URL=https://your-backend-url.run.app
 - `env.production.example`: Template for production
 - `switch-env.sh`: Script to easily switch configurations
 
+## 🔑 API Key Management
+
+### Multi-Model Configuration
+
+The Compare tab supports comprehensive API key management for all three models:
+
+#### **Method 1: Direct Input (Recommended)**
+1. Navigate to the **Compare** tab
+2. Click **"Configure"** in the API Key Configuration section
+3. Enter API keys for each model you want to use:
+   - **OpenAI**: Your OpenAI API key for GPT-5
+   - **Anthropic**: Your Anthropic API key for Claude 4
+   - **Kimi**: Your Moonshot API key for Kimi K2 0905
+4. Keys are automatically saved in your browser's local storage
+
+#### **Method 2: Import/Export Keys**
+- **Export**: Save your configured keys to a JSON file for backup
+- **Import**: Load keys from a previously exported JSON file
+- **Format**: `{"openai": "sk-...", "anthropic": "sk-ant-...", "kimi": "sk-..."}`
+
+#### **Method 3: Environment Variables (Development)**
+For development, you can set keys in `.env.local`:
+```bash
+# Not implemented yet - use direct input method
+NEXT_PUBLIC_OPENAI_API_KEY=your_key_here
+NEXT_PUBLIC_ANTHROPIC_API_KEY=your_key_here
+NEXT_PUBLIC_KIMI_API_KEY=your_key_here
+```
+
+### Security Best Practices
+
+- ✅ **Local Storage**: Keys are stored locally in your browser
+- ✅ **No Server Storage**: Keys are never stored on our servers
+- ✅ **Encrypted Transit**: Keys are sent securely to respective APIs
+- ✅ **Clear Option**: Easy one-click clear all keys
+- ⚠️ **Browser Only**: Keys are lost if you clear browser data
+
+### Getting API Keys
+
+1. **OpenAI (GPT-5)**: [platform.openai.com](https://platform.openai.com/api-keys)
+2. **Anthropic (Claude 4)**: [console.anthropic.com](https://console.anthropic.com/)
+3. **Kimi (Moonshot)**: [platform.moonshot.cn](https://platform.moonshot.cn/)
+
 ## 🎨 UI Components
 
 ### Research Interface
 
 - **Model Selection**: Dropdown to choose AI model (OpenAI, Anthropic, Kimi)
-- **API Key Input**: Secure input for user's API key
+- **API Key Input**: Secure input for user's API key (single model)
 - **Progress Bar**: Visual progress indicator during research
 - **Live Indicator**: Shows when research is actively streaming
 - **Research Steps**: Expandable cards showing detailed research process
+
+### Compare Interface
+
+- **Multi-Key Management**: Configure API keys for all models simultaneously
+- **Model Selection**: Choose which models to include in comparison
+- **Parallel Execution**: Run the same query across multiple models
+- **Performance Metrics**: Detailed timing and quality comparisons
+- **Result Export**: Save comparison results and metrics
 
 ### Research Progress Display
 
