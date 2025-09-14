@@ -5,7 +5,7 @@ A modern, responsive Next.js frontend for the Deep Research Agent. Features real
 ## ✨ Features
 
 - **Real-time Research Streaming**: Live updates showing AI thinking process and research steps
-- **Multi-Model Support**: Switch between Claude 3.5 Sonnet, GPT-4o, and Kimi K2 (256K context)
+- **Multi-Model Support**: Switch between Claude 4, GPT-5, and Kimi K2 0905 Preview
 - **Progressive Research Display**: Detailed step-by-step research progress with visual indicators
 - **Google Docs Export**: One-click export to Google Docs with proper formatting and sources
 - **Responsive Design**: Mobile-friendly and adaptive to all screen sizes

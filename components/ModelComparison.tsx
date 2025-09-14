@@ -65,9 +65,9 @@ const ModelComparison = () => {
   const { apiKey } = useResearchState()
   
   const availableModels = [
-    { id: 'anthropic', name: 'Claude 3.5 Sonnet', description: 'Latest Anthropic model with superior reasoning' },
-    { id: 'openai', name: 'GPT-4o', description: 'OpenAI\'s most capable model with multimodal abilities' },
-    { id: 'kimi', name: 'Kimi K2', description: '256K context window, excellent for long research' }
+    { id: 'anthropic', name: 'Claude 4', description: 'Latest Anthropic Claude 4' },
+    { id: 'openai', name: 'GPT-5', description: 'OpenAI\'s newest flagship model' },
+    { id: 'kimi', name: 'Kimi K2 0905 Preview', description: 'Kimi K2 0905 via Moonshot' }
   ]
 
   useEffect(() => {
