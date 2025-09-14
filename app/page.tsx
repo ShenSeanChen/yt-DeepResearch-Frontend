@@ -6,7 +6,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import ResearchInterface from '@/components/ResearchInterface'
 import ModelComparison from '@/components/ModelComparison'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -63,6 +63,19 @@ function SidebarConfig() {
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('research')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Sync URL hash (#research, #comparison, #history) with tabs so links work even if sidebar is not clickable for any reason.
+  useEffect(() => {
+    const syncFromHash = () => {
+      const hash = (typeof window !== 'undefined' ? window.location.hash.replace('#', '') : '')
+      if (hash === 'comparison' || hash === 'research' || hash === 'history') {
+        setActiveTab(hash)
+      }
+    }
+    syncFromHash()
+    window.addEventListener('hashchange', syncFromHash)
+    return () => window.removeEventListener('hashchange', syncFromHash)
+  }, [])
 
   return (
     <ResearchProvider>
@@ -133,7 +146,7 @@ export default function HomePage() {
 
         {/* Connection Status */}
         {!sidebarCollapsed && (
-          <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+          <div className="mt-auto p-4 border-t border-slate-200 dark:border-slate-700">
             <div className="text-sm text-slate-600 dark:text-slate-300">
               <span className="inline-flex items-center space-x-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>

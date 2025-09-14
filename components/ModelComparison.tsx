@@ -122,19 +122,38 @@ const ModelComparison = () => {
     }
   }
 
-  // MVP: run the same prompt on multiple models in parallel and measure duration.
+  // Friendly model label
+  const modelName = (id: string) => availableModels.find(m => m.id === id)?.name || id
+
+  // Normalize stage names from stream to our buckets
+  const normalizeStage = (stage?: string): keyof MultiModelRun['results'][number]['stageTimings'] => {
+    const s = (stage || '').toLowerCase()
+    if (s.includes('clar')) return 'clarification'
+    if (s.includes('brief')) return 'research_brief'
+    if (s.includes('final')) return 'final_report'
+    return 'research_execution'
+  }
+
+  // MVP: run the same prompt on multiple models in parallel and measure duration + stage timings.
   const runMultiModelComparison = async () => {
     if (!multiModelQuery.trim() || selectedModels.length === 0 || !apiKey.trim()) return
     setIsRunningComparison(true)
     const runId = `mm_${Date.now()}`
-    // Lightweight runner; no shared timer needed here
 
     // Prepare one SSE request per model.
     const tasks = selectedModels.map(async (model) => {
       const controller = new AbortController()
       const started = Date.now()
       let totalContent = ''
-      let lastStage = ''
+      let activeStage: keyof MultiModelRun['results'][number]['stageTimings'] = 'clarification'
+      let stageStart = started
+      const stageTimings: MultiModelRun['results'][number]['stageTimings'] = {
+        clarification: 0,
+        research_brief: 0,
+        research_execution: 0,
+        final_report: 0,
+      }
+      let sourceCount = 0
       try {
         const res = await fetch(`${BACKEND_URL}/research/stream`, {
           method: 'POST',
@@ -156,16 +175,32 @@ const ModelComparison = () => {
             if (!line.startsWith('data: ')) continue
             try {
               const evt = JSON.parse(line.slice(6))
-              if (evt.stage) lastStage = evt.stage
+              if (evt.stage) {
+                const nextStage = normalizeStage(evt.stage)
+                if (nextStage !== activeStage) {
+                  const now = Date.now()
+                  stageTimings[activeStage] += (now - stageStart) / 1000
+                  activeStage = nextStage
+                  stageStart = now
+                }
+              }
+              if (evt.type === 'sources_found') {
+                const found = Array.isArray(evt?.metadata?.sources) ? evt.metadata.sources.length : 1
+                sourceCount += found
+              }
               if (evt.content && typeof evt.content === 'string') totalContent += `\n${evt.content}`
-              setCurrentRunProgress(prev => ({ ...prev, [model]: lastStage || 'streaming' }))
+              setCurrentRunProgress(prev => ({ ...prev, [model]: evt.stage || 'streaming' }))
             } catch {}
           }
         }
         const duration = (Date.now() - started) / 1000
-        return { model, duration, content: totalContent }
+        // Close final stage
+        stageTimings[activeStage] += (Date.now() - stageStart) / 1000
+        return { model, duration, content: totalContent, stageTimings, sourceCount }
       } catch (e) {
-        return { model, duration: (Date.now() - started) / 1000, error: (e as Error).message, content: totalContent }
+        // Close stage timing on error
+        stageTimings[activeStage] += (Date.now() - stageStart) / 1000
+        return { model, duration: (Date.now() - started) / 1000, error: (e as Error).message, content: totalContent, stageTimings, sourceCount }
       }
     })
 
@@ -177,8 +212,8 @@ const ModelComparison = () => {
       results: results.map(r => ({
         model: r.model,
         duration: r.duration,
-        stageTimings: { clarification: 0, research_brief: 0, research_execution: 0, final_report: 0 },
-        sourceCount: 0,
+        stageTimings: r.stageTimings,
+        sourceCount: r.sourceCount,
         wordCount: r.content.split(/\s+/).filter(Boolean).length,
         success: !r.error,
         error: r.error,
@@ -311,27 +346,36 @@ const ModelComparison = () => {
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Latest Comparison</h3>
             <p className="text-xs text-slate-500">Prompt: {comparisonResults[0].query}</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 dark:bg-slate-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Model</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Duration</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Words</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
-                {comparisonResults[0].results.map(r => (
-                  <tr key={`${comparisonResults[0].id}-${r.model}`} className="hover:bg-slate-50 dark:hover:bg-slate-700/50">
-                    <td className="px-6 py-4">{r.model}</td>
-                    <td className="px-6 py-4">{formatDuration(r.duration)}</td>
-                    <td className="px-6 py-4">{r.wordCount}</td>
-                    <td className="px-6 py-4">{r.success ? '✅' : '❌'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            {comparisonResults[0].results.map((r) => {
+              const total = Math.max(r.duration, 0.001)
+              const pct = (v: number) => `${Math.max(0, Math.min(100, (v / total) * 100))}%`
+              return (
+                <div key={`${comparisonResults[0].id}-${r.model}`} className="rounded-lg border border-slate-200 dark:border-slate-700 p-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-white">{modelName(r.model)}</div>
+                    <div className="text-xs text-slate-500">{formatDuration(r.duration)}</div>
+                  </div>
+                  <div className="flex w-full h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden mb-3">
+                    <div className="h-2 bg-blue-500" style={{ width: pct(r.stageTimings.clarification) }} />
+                    <div className="h-2 bg-purple-500" style={{ width: pct(r.stageTimings.research_brief) }} />
+                    <div className="h-2 bg-green-500" style={{ width: pct(r.stageTimings.research_execution) }} />
+                    <div className="h-2 bg-amber-500" style={{ width: pct(r.stageTimings.final_report) }} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded bg-slate-50 dark:bg-slate-800 p-2"><span className="text-slate-500">Clarify</span><div className="font-semibold">{formatDuration(r.stageTimings.clarification)}</div></div>
+                    <div className="rounded bg-slate-50 dark:bg-slate-800 p-2"><span className="text-slate-500">Brief</span><div className="font-semibold">{formatDuration(r.stageTimings.research_brief)}</div></div>
+                    <div className="rounded bg-slate-50 dark:bg-slate-800 p-2"><span className="text-slate-500">Execution</span><div className="font-semibold">{formatDuration(r.stageTimings.research_execution)}</div></div>
+                    <div className="rounded bg-slate-50 dark:bg-slate-800 p-2"><span className="text-slate-500">Final</span><div className="font-semibold">{formatDuration(r.stageTimings.final_report)}</div></div>
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
+                    <div>Sources: <span className="font-semibold text-slate-700 dark:text-slate-300">{r.sourceCount}</span></div>
+                    <div>Words: <span className="font-semibold text-slate-700 dark:text-slate-300">{r.wordCount}</span></div>
+                    <div>{r.success ? '✅ Success' : '❌ Error'}</div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}
