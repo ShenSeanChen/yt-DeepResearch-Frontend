@@ -653,10 +653,13 @@ const ModelComparison = () => {
                   <Clock className="w-6 h-6 text-slate-600 dark:text-slate-400" />
                 </div>
                 <div className="text-2xl font-semibold text-slate-900 dark:text-white">
-                  {comparisonData.models.length > 0 ? 
-                    formatDuration(comparisonData.models.reduce((acc, m) => acc + m.average_duration, 0) / comparisonData.models.length) : 
-                    '0s'
-                  }
+                  {(() => {
+                    // Filter out models that haven't been run yet (average_duration = 0)
+                    const modelsWithData = comparisonData.models.filter(m => m.average_duration > 0);
+                    return modelsWithData.length > 0 ? 
+                      formatDuration(modelsWithData.reduce((acc, m) => acc + m.average_duration, 0) / modelsWithData.length) : 
+                      '0s';
+                  })()}
                 </div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">Avg Response Time</div>
               </div>
