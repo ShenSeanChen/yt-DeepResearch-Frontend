@@ -2,6 +2,16 @@
 
 A modern, responsive Next.js frontend for the Deep Research Agent. Features real-time streaming research progress, multi-model support, and an intuitive chat-like interface similar to Perplexity and OpenAI's thinking mode.
 
+📹 Full YouTube Guide: [Youtube link](https://youtu.be/NaTYSozASMg)
+
+🚀 X Post: [X link](https://x.com/ShenSeanChen/status/1947796273899139530)
+
+💻 Launch Full Stack Product: [Github Repo](https://github.com/ShenSeanChen/launch-mvp-stripe-nextjs-supabase)
+
+☕️ Buy me a coffee: [Cafe Latte](https://buy.stripe.com/5kA176bA895ggog4gh)
+
+🤖️ Discord: [Invite link](https://discord.com/invite/TKKPzZheua)
+
 ## ✨ Features
 
 - **Real-time Research Streaming**: Live updates showing AI thinking process and research steps
