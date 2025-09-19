@@ -2,7 +2,7 @@
 
 A modern, responsive Next.js frontend for the Deep Research Agent. Features real-time streaming research progress, multi-model support, and an intuitive chat-like interface similar to Perplexity and OpenAI's thinking mode.
 
-📹 Full YouTube Guide: [Youtube link](https://youtu.be/NaTYSozASMg)
+📹 Full YouTube Guide: [Youtube link](https://www.youtube.com/watch?v=dw9Vkig47S0&list=PLE9hy4A7ZTmpGq7GHf5tgGFWh2277AeDR&index=29)
 
 🚀 X Post: [X link](https://x.com/ShenSeanChen/status/1947796273899139530)
 
